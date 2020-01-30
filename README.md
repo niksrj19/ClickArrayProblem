@@ -1,2 +1,0 @@
-# ClickArrayProblem
-Created with CodeSandbox

@@ -1,0 +1,229 @@
+<html>
+  <head>
+    <script type="text/javascript" src="./click.json"></script>
+
+    <script>
+      const fs = require("fs");
+      var data = jsonstr;
+
+      jsondata = removeRedundentIpsFromArray(data); // Remove the ip which has more then 10 click in a given click array
+      jsondata.sort(sortOnDateTime); // sorting array on time basis
+      var result_Array = []; /* Result will be return in result_Array */
+      /* use the time_span_array to divide a click array into time slots */
+      var time_span_array = [
+        { start: "000000", end: "005959" },
+        { start: "010000", end: "015959" },
+        { start: "020000", end: "025959" },
+        { start: "030000", end: "035959" },
+        { start: "040000", end: "045959" },
+        { start: "050000", end: "055959" },
+        { start: "060000", end: "065959" },
+        { start: "070000", end: "075959" },
+        { start: "080000", end: "085959" },
+        { start: "090000", end: "095959" },
+        { start: "100000", end: "105959" },
+        { start: "110000", end: "115959" },
+        { start: "120000", end: "125959" },
+        { start: "130000", end: "135959" },
+        { start: "140000", end: "145959" },
+        { start: "150000", end: "155959" },
+        { start: "160000", end: "165959" },
+        { start: "170000", end: "175959" },
+        { start: "180000", end: "185959" },
+        { start: "190000", end: "195959" },
+        { start: "200000", end: "205959" },
+        { start: "210000", end: "215959" },
+        { start: "220000", end: "225959" },
+        { start: "230000", end: "235959" }
+      ];
+
+      for (var slot of time_span_array) {
+        /*Loop to distribute click array into time slot */
+        const arr_slot = divideArrayInTimeSlot(
+          slot,
+          jsondata
+        ); /* getting array on time slot  */
+        if (arr_slot.length !== 0) {
+          arr_slot.sort(sortClickDataOnAmount); /*Sorting data on amount */
+          if (isDuplicateInArray(arr_slot)) {
+            /* run if sloted array has duplicate value */
+            let res = findMaxIpInDuplicateArray(arr_slot);
+            saveIntoResultArray(
+              res
+            ); /* Adding sloted array into the result set */
+          } else {
+            saveIntoResultArray(
+              arr_slot
+            ); /* Adding sloted array into the result set */
+          }
+        }
+      }
+
+      function removeRedundentIpsFromArray(original_Arr) {
+        /* Fuction to remove IPs from click array if ip has more then 10 hits */
+        var arr = JSON.parse(JSON.stringify(original_Arr));
+        var map = new Map();
+        var ips_count = 0;
+        arr.sort(sortDataOnIPAddress);
+        for (var ips of arr) {
+          if (!map.has(ips.ip)) {
+            map.set(ips.ip, true);
+            ips_count = 0;
+          } else {
+            ips_count += 1;
+            if (ips_count + 1 > 10) {
+              arr = removeAnIpFromArray(arr, ips.ip);
+              ips_count = 0;
+            }
+          }
+        }
+        return arr;
+      }
+
+      console.log("result", JSON.stringify(result_Array));
+
+      if (result_Array.length !== 0) {
+        fs.writeFile("./resultset.json", JSON.stringify(result_Array), err => {
+          if (err) {
+            console.log("Error writing file", err);
+          } else {
+            console.log("Successfully wrote file");
+          }
+        });
+      }
+
+      function saveIntoResultArray(res_arr) {
+        /* Saving data into result set*/
+        for (var element of res_arr) {
+          result_Array.push(element);
+        }
+      }
+
+      function removeAnIpFromArray(arr, ip) {
+        /* Using this function to remove ips from array */
+        return arr.filter(items => items.ip !== ip);
+      }
+
+      function findMaxIpInDuplicateArray(duplicateValueArray) {
+        /* function : From array removing duplicates and returning max amount's ip array  */
+        const result = [];
+        const map = new Map();
+        for (const item of duplicateValueArray) {
+          if (!map.has(item.ip)) {
+            map.set(item.ip, item);
+            result.push(item);
+          } else {
+            let pre_value = map.get(item.ip);
+            if (pre_value.amount === item.amount) {
+              /*if amount is same then returning first click */
+              if (
+                getTimeFromDate(pre_value.timestamp) >
+                getTimeFromDate(item.timestamp)
+              ) {
+                var i = result.indexOf(pre_value);
+                result[i] = item;
+              }
+            } else if (pre_value.amount < item.amount) {
+              /*if amount is different then returning maximum amount click */
+              var i = result.indexOf(pre_value);
+              result[i] = item;
+            }
+          }
+        }
+        return result;
+      }
+
+      function isDuplicateInArray(input_array) {
+        /* Return true if array contain a duplicate value else false */
+        for (var i = 0; i < input_array.length; i++) {
+          for (var j = i; j < input_array.length; j++) {
+            if (i != j && input_array[i].ip === input_array[j].ip) {
+              return true;
+            }
+          }
+        }
+        return false;
+      }
+
+      function divideArrayInTimeSlot(objSlot, jsondata) {
+        /* Return an array comes in a given time slot  */
+        let array_slot = [];
+        array_slot = jsondata.filter(function(item) {
+          if (
+            objSlot.start <= getTimeFromDate(item.timestamp) &&
+            objSlot.end >= getTimeFromDate(item.timestamp)
+          ) {
+            return item;
+          }
+        });
+        return array_slot;
+      }
+
+      function sortClickDataOnAmount(a, b) {
+        /* callback use to sort array data on based on Amount  */
+        return a.amount > b.amount ? -1 : 1;
+      }
+
+      function sortDataOnIPAddress(a, b) {
+        /* callback use to sort array data on based on IP Address  */
+        if (a.ip.split(".").join("") > b.ip.split(".").join("")) {
+          return -1;
+        } else {
+          return 1;
+        }
+      }
+
+      function sortOnDateTime(item1, item2) {
+        /* callback use to sort array data on based on Timestamp  */
+        var date1 = new Date(item1.timestamp);
+        var date2 = new Date(item2.timestamp);
+        return date1.getTime() >= date2.getTime() ? 1 : -1;
+      }
+
+      function getTimeFromDate(inputDate) {
+        /* Get Time using Timestamp */
+        var date = new Date(inputDate);
+        var hours = date.getHours();
+        var minutes = date.getMinutes();
+        var seconds = date.getSeconds();
+        return (
+          (hours < 10 ? 0 + "" + hours : hours) +
+          "" +
+          (minutes < 10 ? 0 + "" + minutes : minutes) +
+          "" +
+          (seconds < 10 ? 0 + "" + seconds : seconds)
+        );
+      }
+
+      /*  var array_ip = [];
+      var array_timestamp = [];
+      var array_amount = [];
+
+      for (var i = 0; i < jsondata.length; i++) {
+        array_ip.push(jsondata[i].ip);
+        array_timestamp.push(jsondata[i].timestamp);
+        array_amount.push(jsondata[i].amount);
+
+       
+      } */
+
+      /*    function getDatefromTimeStamp(timestamp) {
+        var currentDate = new Date(timestamp);
+        var date = currentDate.getDate();
+        var month = currentDate.getMonth(); 
+        var year = currentDate.getFullYear();
+
+        return (dateString = date + "-" + (month + 1) + "-" + year);
+      }
+
+      function compareDateAndTime(date1, date2) {
+        return date1.getTime() >= date2.getTime();
+      }
+
+      function getMaxAmountInHourSpan() {
+        return 0;
+      }   */
+    </script>
+  </head>
+  <body></body>
+</html>
